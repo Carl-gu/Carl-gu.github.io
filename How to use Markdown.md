@@ -1,4 +1,4 @@
-#How to use Markdown
+# How to use Markdown
 
 Here are some websites for you to understand how to use Markdown.
 
