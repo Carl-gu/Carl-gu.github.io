@@ -1,0 +1,228 @@
+diff --git a/child_image/hci_rpmsg/boards/nrf5340dk_nrf5340_cpunet.conf b/child_image/hci_rpmsg/boards/nrf5340dk_nrf5340_cpunet.conf
+new file mode 100644
+index 0000000..5da63a0
+--- /dev/null
++++ b/child_image/hci_rpmsg/boards/nrf5340dk_nrf5340_cpunet.conf
+@@ -0,0 +1,31 @@
++#
++# Copyright (c) 2021 Nordic Semiconductor ASA
++#
++# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
++#
++
++CONFIG_IPC_SERVICE=y
++CONFIG_MBOX=y
++
++CONFIG_HEAP_MEM_POOL_SIZE=8192
++
++CONFIG_MAIN_STACK_SIZE=512
++CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=512
++
++CONFIG_BT=y
++CONFIG_BT_HCI_RAW=y
++CONFIG_BT_HCI_RAW_RESERVE=1
++CONFIG_BT_MAX_CONN=16
++
++CONFIG_BT_CTLR_ASSERT_HANDLER=y
++
++# Workaround: Unable to allocate command buffer when using K_NO_WAIT since
++# Host number of completed commands does not follow normal flow control.
++CONFIG_BT_BUF_CMD_TX_COUNT=10
++
++CONFIG_SERIAL=n
++CONFIG_LOG=n
++
++# enable console
++CONFIG_CONSOLE=n
++CONFIG_UART_CONSOLE=n
+\ No newline at end of file
+diff --git a/prj.conf b/prj.conf
+index e5262de..26cf9ee 100644
+--- a/prj.conf
++++ b/prj.conf
+@@ -7,6 +7,10 @@
+ # Enable the UART driver
+ CONFIG_UART_ASYNC_API=y
+ CONFIG_NRFX_UARTE0=y
++CONFIG_UART_INTERRUPT_DRIVEN=y
++CONFIG_UART_0_INTERRUPT_DRIVEN=n
++CONFIG_UART_0_ASYNC=y
++CONFIG_BT_NUS_UART_ASYNC_ADAPTER=y
+ CONFIG_SERIAL=y
+ 
+ CONFIG_GPIO=y
+@@ -42,9 +46,16 @@ CONFIG_DK_LIBRARY=y
+ CONFIG_SYSTEM_WORKQUEUE_STACK_SIZE=2048
+ 
+ # Config logger
+-CONFIG_LOG=y
+-CONFIG_USE_SEGGER_RTT=y
+-CONFIG_LOG_BACKEND_RTT=y
++CONFIG_LOG=n
++CONFIG_USE_SEGGER_RTT=n
++CONFIG_LOG_BACKEND_RTT=n
+ CONFIG_LOG_BACKEND_UART=n
+ 
+ CONFIG_ASSERT=y
++
++
++CONFIG_PM=y
++CONFIG_PM_DEVICE=y
++
++
++CONFIG_UART_0_NRF_ASYNC_LOW_POWER=y
+\ No newline at end of file
+diff --git a/src/main.c b/src/main.c
+index d8afb44..c292cbe 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -32,6 +32,7 @@
+ #include <stdio.h>
+ 
+ #include <zephyr/logging/log.h>
++#include <zephyr/pm/device.h>
+ 
+ #define LOG_MODULE_NAME peripheral_uart
+ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
+@@ -58,6 +59,7 @@ static K_SEM_DEFINE(ble_init_ok, 0, 1);
+ 
+ static struct bt_conn *current_conn;
+ static struct bt_conn *auth_conn;
++static bool uart_active = false;
+ 
+ static const struct device *uart = DEVICE_DT_GET(DT_CHOSEN(nordic_nus_uart));
+ static struct k_work_delayable uart_work;
+@@ -86,6 +88,35 @@ UART_ASYNC_ADAPTER_INST_DEFINE(async_adapter);
+ static const struct device *const async_adapter;
+ #endif
+ 
++
++static void uart_enable(void)
++{
++	uart_active = true;
++	struct uart_data_t *buf;
++
++	pm_device_action_run(uart,PM_DEVICE_ACTION_RESUME);
++	buf = k_malloc(sizeof(*buf));
++	if (buf)
++	{
++		buf->len = 0;
++	}
++	else
++	{
++		LOG_WRN("Not able to allocate UART receive buffer");
++		k_work_reschedule(&uart_work, UART_WAIT_FOR_BUF_DELAY);
++		return;
++	}
++
++	uart_rx_enable(uart, buf->data, sizeof(buf->data), UART_WAIT_FOR_RX);
++}
++
++static void uart_disable(void)
++{
++	uart_active = false;
++	uart_rx_disable(uart);
++	pm_device_action_run(uart,PM_DEVICE_ACTION_SUSPEND);
++}
++
+ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user_data)
+ {
+ 	ARG_UNUSED(dev);
+@@ -147,18 +178,20 @@ static void uart_cb(const struct device *dev, struct uart_event *evt, void *user
+ 		LOG_DBG("UART_RX_DISABLED");
+ 		disable_req = false;
+ 
+-		buf = k_malloc(sizeof(*buf));
+-		if (buf) {
+-			buf->len = 0;
+-		} else {
+-			LOG_WRN("Not able to allocate UART receive buffer");
+-			k_work_reschedule(&uart_work, UART_WAIT_FOR_BUF_DELAY);
+-			return;
+-		}
+-
+-		uart_rx_enable(uart, buf->data, sizeof(buf->data),
+-			       UART_WAIT_FOR_RX);
++		if(uart_active)
++		{
++			buf = k_malloc(sizeof(*buf));
++			if (buf) {
++				buf->len = 0;
++			} else {
++				LOG_WRN("Not able to allocate UART receive buffer");
++				k_work_reschedule(&uart_work, UART_WAIT_FOR_BUF_DELAY);
++				return;
++			}
+ 
++			uart_rx_enable(uart, buf->data, sizeof(buf->data),
++					UART_WAIT_FOR_RX);
++		}
+ 		break;
+ 
+ 	case UART_RX_BUF_REQUEST:
+@@ -210,16 +243,19 @@ static void uart_work_handler(struct k_work *item)
+ {
+ 	struct uart_data_t *buf;
+ 
+-	buf = k_malloc(sizeof(*buf));
+-	if (buf) {
+-		buf->len = 0;
+-	} else {
+-		LOG_WRN("Not able to allocate UART receive buffer");
+-		k_work_reschedule(&uart_work, UART_WAIT_FOR_BUF_DELAY);
+-		return;
+-	}
++	if(uart_active)
++	{
++		buf = k_malloc(sizeof(*buf));
++		if (buf) {
++			buf->len = 0;
++		} else {
++			LOG_WRN("Not able to allocate UART receive buffer");
++			k_work_reschedule(&uart_work, UART_WAIT_FOR_BUF_DELAY);
++			return;
++		}
+ 
+-	uart_rx_enable(uart, buf->data, sizeof(buf->data), UART_WAIT_FOR_RX);
++		uart_rx_enable(uart, buf->data, sizeof(buf->data), UART_WAIT_FOR_RX);
++	}
+ }
+ 
+ static bool uart_test_async_api(const struct device *dev)
+@@ -317,7 +353,8 @@ static int uart_init(void)
+ 		return err;
+ 	}
+ 
+-	return uart_rx_enable(uart, rx->data, sizeof(rx->data), 50);
++	// return uart_rx_enable(uart, rx->data, sizeof(rx->data), 50);
++	return err;
+ }
+ 
+ static void connected(struct bt_conn *conn, uint8_t err)
+@@ -335,6 +372,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
+ 	current_conn = bt_conn_ref(conn);
+ 
+ 	dk_set_led_on(CON_STATUS_LED);
++	uart_enable();
+ }
+ 
+ static void disconnected(struct bt_conn *conn, uint8_t reason)
+@@ -354,6 +392,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
+ 		bt_conn_unref(current_conn);
+ 		current_conn = NULL;
+ 		dk_set_led_off(CON_STATUS_LED);
++		uart_disable();
+ 	}
+ }
+ 
+@@ -602,7 +641,9 @@ void main(void)
+ 		return;
+ 	}
+ 
+-	err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd,
++	err = bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE, \
++				       0x00a0*20, \
++				       0x00f0*20, NULL), ad, ARRAY_SIZE(ad), sd,
+ 			      ARRAY_SIZE(sd));
+ 	if (err) {
+ 		LOG_ERR("Advertising failed to start (err %d)", err);

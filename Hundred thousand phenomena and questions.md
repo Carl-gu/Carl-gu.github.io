@@ -12,3 +12,4 @@
 
 ## How my trading strategy is?
 
+## 
