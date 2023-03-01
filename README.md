@@ -9,5 +9,5 @@ This repository contains all of my blogs
 
 [Nordic Flash Management]
 
-[Nordic Power Managment]
+[Nordic Power Managment](https://Carl-gu.github.io/Nordic%20Power%20Managment)
 

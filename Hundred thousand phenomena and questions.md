@@ -12,4 +12,6 @@
 
 ## How my trading strategy is?
 
-## 
+## If our social world lost electrical, how many things will be changed in our life?
+
+## If our social world lost network, how many things will be changed in our life?
