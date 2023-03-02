@@ -26,7 +26,8 @@ zephyr.hex
 zephyr.bin
 merged.hex
 app_update.bin
-
+And this link introduce each images.
+https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/app_dev/multi_image/index.html#what-image-files-are
 
 Next schedule is researching how these files been generated.
 
