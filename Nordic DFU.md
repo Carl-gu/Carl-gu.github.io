@@ -6,7 +6,7 @@ https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/libraries/dfu/in
 https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/services/device_mgmt/mcumgr.html
 
 If you want to implement cross_dfu, this link is useful.
-https://devzone.nordicsemi.com/guides/short-range-guides/b/software-development-kit/posts/getting-started-with-nordics-secure-dfu-bootloader#_cptype=root
+https://devzone.nordicsemi.com/guides/short-range-guides/b/software-development-kit/posts/getting-started-with-nordics-secure-dfu-bootloader
 
 
 
@@ -29,7 +29,8 @@ app_update.bin
 And this link introduce each images.
 https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/app_dev/multi_image/index.html#what-image-files-are
 
-Next schedule is researching how these files been generated.
+1. Next schedule is researching how these files been generated.
+2. There are many ways to do DFU. such as using bootloader to do DFU by UART, SPI, and using wireless by bluetooth, celluar.
 
 
 Doing.....

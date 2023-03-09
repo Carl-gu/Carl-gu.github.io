@@ -6,3 +6,5 @@ https://developer.nordicsemi.com/nRF_Connect_SDK/doc/2.2.0/nrf/ug_matter_gs_test
 
 This link is used to connect light over thread.
 https://developer.nordicsemi.com/nRF_Connect_SDK/doc/2.2.0/nrf/samples/matter/light_bulb/README.html
+
+https://devzone.nordicsemi.com/nordic/nordic-blog/b/blog/posts/matter-testing-nrf-connect-sdk-platform-with-apple-google-and-samsung-ecosystems-218911247
