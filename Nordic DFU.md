@@ -8,7 +8,17 @@ https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/zephyr/services/devi
 If you want to implement cross_dfu, this link is useful.
 https://devzone.nordicsemi.com/guides/short-range-guides/b/software-development-kit/posts/getting-started-with-nordics-secure-dfu-bootloader
 
+## How many ways to update firmware?
+1. download firmware by JLINK
+2. download firmware by NRF bootloader
+3. download firmware by MCUboot
+4. download firmware by DIY protocol just like cross_dfu project writing by Nordic AE
 
+## How many ways to receive firmware?
+1. from BLE
+2. from Serial
+3. from SPI
+4. from USB
 
 
 Referring sample project (NCS2.1.2\zephyr\samples\subsys\mgmt\mcumgr\smp_svr)
